@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>경동대학교 학생부 교과성적 산출 프로그램</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=DM+Mono:wght@400;500;600&display=swap');
+
+/* ── 여기에 Google Apps Script 배포 URL을 입력하세요 ──
+   설정 후 이 주석을 삭제하세요                         */
+
+:root {
+  --bg: #f4f4f0;
+  --white: #fff;
+  --ink: #1a1a18;
+  --ink2: #3d3d3a;
+  --ink3: #7a7a74;
+  --line: #ddddd8;
+  --line2: #ebebeb;
+  --accent: #1a3a8f;
+  --accent2: #e8edf8;
+  --red: #991b1b;
+  --red-bg: #fef2f2;
+  --green: #14532d;
+  --green-bg: #f0fdf4;
+  --amber: #92400e;
+  --amber-bg: #fffbeb;
+
+  --c1:#4c1d95;--c2:#1e3a8a;--c3:#134e4a;--c4:#14532d;
+  --c5:#713f12;--c6:#7c2d12;--c7:#7f1d1d;--c8:#881337;--c9:#450a0a;
+  --b1:#f5f3ff;--b2:#eff6ff;--b3:#f0fdfa;--b4:#f0fdf4;
+  --b5:#fefce8;--b6:#fff7ed;--b7:#fef2f2;--b8:#fff1f2;--b9:#fef2f2;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:'Noto Sans KR',sans-serif;font-size:14px}
+
+.screen{display:none}.screen.active{display:block}
+
+/* ── 공통 버튼 ── */
+.btn{padding:10px 22px;border-radius:8px;border:none;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;transition:all .15s}
+.btn-primary{background:var(--accent);color:white}.btn-primary:hover{background:#122b6e}
+.btn-ghost{background:white;color:var(--ink2);border:1px solid var(--line)}.btn-ghost:hover{background:var(--bg)}
+.btn-danger{background:#dc2626;color:white}.btn-danger:hover{background:#b91c1c}
+.btn-sm{padding:6px 14px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ── 입력 필드 공통 ── */
+input[type=text],input[type=password],input[type=number],select{
+  background:var(--bg);border:1px solid var(--line);border-radius:7px;
+  padding:8px 11px;font-family:'Noto Sans KR',sans-serif;font-size:13px;
+  color:var(--ink);outline:none;transition:border-color .2s
+}
+input:focus,select:focus{border-color:var(--accent);background:white}
+
+/* ════════════════════════════════
+   SCREEN 0: URL 설정
+════════════════════════════════ */
+#screen-setup{display:none!important}
+.setup-card{background:white;border:1px solid var(--line);border-radius:16px;padding:40px;max-width:520px;width:100%}
+.setup-card h2{font-size:20px;font-weight:900;margin-bottom:6px}
+.setup-card p{font-size:13px;color:var(--ink3);margin-bottom:24px;line-height:1.6}
+.setup-field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.setup-field label{font-size:12px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px}
+.setup-field input{width:100%;font-size:12px;font-family:'DM Mono',monospace}
+.setup-hint{font-size:11px;color:var(--ink3);margin-top:4px;line-height:1.5}
+.setup-steps{background:var(--accent2);border-radius:10px;padding:16px 18px;margin-bottom:20px;font-size:12px;line-height:1.8;color:var(--accent)}
+.setup-steps strong{font-weight:700}
+
+/* ════════════════════════════════
+   SCREEN 1: 학생 입력
+════════════════════════════════ */
+.wrap{max-width:900px;margin:0 auto;padding:36px 24px 60px}
+.page-title{font-size:22px;font-weight:900;letter-spacing:-.5px;margin-bottom:4px}
+.page-title span{color:var(--accent)}
+.page-sub{font-size:13px;color:var(--ink3);margin-bottom:28px}
+
+.formula-strip{background:var(--accent);color:white;border-radius:10px;overflow:hidden;margin-bottom:28px}
+.fs-row-top{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid rgba(255,255,255,.12)}
+.fs-step{padding:13px 20px;display:flex;flex-direction:column;gap:3px}
+.fs-step:first-child{border-right:1px solid rgba(255,255,255,.12)}
+.fs-step-num{font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:.7}
+.fs-step-val{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.fs-row-bottom{display:grid;grid-template-columns:1fr 1fr 1.6fr}
+.fs-type{padding:11px 18px;display:flex;flex-direction:column;gap:6px;background:rgba(0,0,0,.18)}
+.fs-type:not(:last-child){border-right:1px solid rgba(255,255,255,.1)}
+.fs-type-label{font-size:13px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;opacity:.75}
+.chips{display:flex;gap:4px;flex-wrap:nowrap;align-items:center}
+.chip{padding:3px 7px;border-radius:20px;font-size:12px;font-weight:700;font-family:'DM Mono',monospace}
+.chip-j{background:rgba(255,255,255,.18)}.chip-g{background:rgba(255,255,255,.1)}
+
+.sem-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.sem-card{background:white;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.sc-header{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);background:var(--ink);color:white}
+.sc-title{font-size:13px;font-weight:700}
+.sc-avg{font-family:'DM Mono',monospace;font-size:13px;color:rgba(255,255,255,.55)}
+.sc-avg strong{color:white;font-size:15px}
+.sc-body{padding:10px 14px}
+.row-item{display:flex;gap:6px;align-items:center;margin-bottom:6px;width:100%}
+.ri-name{flex:1;min-width:0}
+.ri-type{width:80px;flex-shrink:0;padding:6px 4px;font-size:12px}
+.ri-val{width:68px;flex-shrink:0;text-align:center;font-family:'DM Mono',monospace}
+.gbadge{width:36px;height:36px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:14px;font-weight:700;flex-shrink:0}
+.g-none{width:36px;height:36px;flex-shrink:0}
+.g1{background:var(--b1);color:var(--c1)}.g2{background:var(--b2);color:var(--c2)}
+.g3{background:var(--b3);color:var(--c3)}.g4{background:var(--b4);color:var(--c4)}
+.g5{background:var(--b5);color:var(--c5)}.g6{background:var(--b6);color:var(--c6)}
+.g7{background:var(--b7);color:var(--c7)}.g8{background:var(--b8);color:var(--c8)}
+.g9{background:var(--b9);color:var(--c9)}
+.del-btn{width:24px;height:24px;background:transparent;border:none;color:#bbb;font-size:13px;cursor:pointer;border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .1s,color .1s}
+.del-btn:hover{background:#fee2e2;color:#dc2626}
+.add-row-btn{width:100%;padding:7px;background:transparent;border:1px dashed var(--line);border-radius:6px;color:var(--ink3);font-family:'Noto Sans KR',sans-serif;font-size:12px;cursor:pointer;transition:all .15s;margin-top:4px}
+.add-row-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent2)}
+.bottom-bar{display:flex;gap:10px;justify-content:center}
+
+/* ════════════════════════════════
+   SCREEN 2: 결과 확인 + 제출
+════════════════════════════════ */
+.result-wrap{max-width:780px;margin:0 auto;padding:40px 24px 60px}
+.result-actions{display:flex;gap:10px;margin-bottom:32px;flex-wrap:wrap}
+.result-header{text-align:center;margin-bottom:36px}
+.result-title{font-size:13px;font-weight:700;color:var(--ink3);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.result-grade-big{font-family:'DM Mono',monospace;font-size:88px;font-weight:600;line-height:1;letter-spacing:-2px}
+.result-grade-unit{font-size:20px;color:var(--ink3);margin-top:8px;font-weight:300}
+.result-formula{display:inline-flex;align-items:center;gap:8px;background:var(--accent2);border:1px solid #c5d3f0;border-radius:8px;padding:10px 18px;font-size:13px;font-family:'DM Mono',monospace;color:var(--accent);font-weight:600;margin-top:16px;flex-wrap:wrap;justify-content:center}
+.sem-summary-table{width:100%;border-collapse:collapse;margin-bottom:32px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.sem-summary-table thead th{background:var(--ink);color:rgba(255,255,255,.7);padding:11px 14px;text-align:left;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.sem-summary-table tbody tr{border-bottom:1px solid var(--line)}
+.sem-summary-table tbody tr:last-child{border-bottom:none}
+.sem-summary-table tbody tr:nth-child(even){background:#fafaf8}
+.sem-summary-table tbody td{padding:11px 14px;font-size:14px;vertical-align:middle}
+.mono{font-family:'DM Mono',monospace}
+.detail-section{margin-bottom:28px}
+.detail-sem-header{display:flex;justify-content:space-between;align-items:baseline;padding:10px 16px;background:var(--ink2);color:white;border-radius:8px 8px 0 0}
+.dsh-title{font-size:14px;font-weight:700}.dsh-avg{font-family:'DM Mono',monospace;font-size:16px;font-weight:600}
+.detail-tbl{width:100%;border-collapse:collapse;border:1px solid var(--line);border-top:none;border-radius:0 0 8px 8px;overflow:hidden}
+.detail-tbl tbody tr{border-bottom:1px solid var(--line)}
+.detail-tbl tbody tr:last-child{border-bottom:none}
+.detail-tbl tbody tr:hover{background:#f7f7f4}
+.detail-tbl tbody td{padding:9px 14px;font-size:13px;vertical-align:middle}
+.type-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+
+/* 제출 폼 */
+.submit-box{background:white;border:2px solid var(--accent);border-radius:14px;padding:28px;margin-bottom:32px;text-align:center}
+.submit-box h3{font-size:16px;font-weight:800;margin-bottom:6px}
+.submit-box p{font-size:13px;color:var(--ink3);margin-bottom:20px}
+.submit-row{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap}
+.submit-name{width:200px;font-size:14px;text-align:center}
+.submit-status{margin-top:14px;font-size:13px;font-weight:600;min-height:20px}
+.status-ok{color:var(--green)}.status-err{color:var(--red)}.status-loading{color:var(--ink3)}
+
+/* ════════════════════════════════
+   SCREEN 3: 관리자
+════════════════════════════════ */
+.admin-wrap{max-width:1100px;margin:0 auto;padding:32px 24px 60px}
+.admin-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;flex-wrap:wrap;gap:12px}
+.admin-title{font-size:20px;font-weight:900}
+.admin-title span{color:var(--accent)}
+
+/* 통계 카드 */
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:28px}
+.stat-card{background:white;border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.stat-card .sv{font-family:'DM Mono',monospace;font-size:36px;font-weight:600;color:var(--accent)}
+.stat-card .sl{font-size:12px;color:var(--ink3);margin-top:4px}
+
+/* 등급 분포 */
+.dist-card{background:white;border:1px solid var(--line);border-radius:12px;padding:20px 24px;margin-bottom:24px}
+.dist-card h3{font-size:13px;font-weight:700;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px}
+.dist-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.dist-lbl{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;width:18px;text-align:center;flex-shrink:0}
+.dist-bg{flex:1;height:10px;background:var(--line2);border-radius:5px;overflow:hidden}
+.dist-fill{height:100%;border-radius:5px;transition:width .5s ease}
+.dist-cnt{font-family:'DM Mono',monospace;font-size:12px;color:var(--ink3);width:20px;text-align:right;flex-shrink:0}
+.dist-names{font-size:11px;color:var(--ink3);flex:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 목록 테이블 */
+.list-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.list-tbl-wrap{background:white;border:1px solid var(--line);border-radius:12px;overflow:auto;margin-bottom:20px}
+.list-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.list-tbl thead th{background:var(--ink);color:rgba(255,255,255,.75);padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+.list-tbl tbody tr{border-bottom:1px solid var(--line2);transition:background .1s}
+.list-tbl tbody tr:last-child{border-bottom:none}
+.list-tbl tbody tr:hover{background:#f5f5fc}
+.list-tbl tbody td{padding:10px 14px;vertical-align:middle}
+.grade-pill{display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border-radius:20px;font-family:'DM Mono',monospace;font-size:13px;font-weight:700}
+
+/* 로그인 오버레이 */
+.login-overlay{display:flex;align-items:center;justify-content:center;min-height:60vh}
+.login-card{background:white;border:1px solid var(--line);border-radius:14px;padding:40px;text-align:center;max-width:360px;width:100%}
+.login-card h2{font-size:18px;font-weight:800;margin-bottom:6px}
+.login-card p{font-size:13px;color:var(--ink3);margin-bottom:24px}
+.login-field{display:flex;gap:8px;justify-content:center}
+.login-field input{width:180px;text-align:center;letter-spacing:2px}
+.login-err{font-size:12px;color:var(--red);margin-top:10px;min-height:18px}
+
+/* 인쇄 */
+@media print{.result-actions,.submit-box,.no-print{display:none!important}body{background:white}.result-wrap{padding:20px;max-width:100%}.result-grade-big{font-size:64px}.detail-section{break-inside:avoid}}
+@media(max-width:700px){.sem-grid{grid-template-columns:1fr}.fs-row-bottom{grid-template-columns:1fr}.fs-type:not(:last-child){border-right:none;border-bottom:1px solid rgba(255,255,255,.1)}}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     SCREEN 0: Apps Script URL 설정
+══════════════════════════════════════ -->
+<div id="screen-setup" class="screen">
+<div class="setup-card">
+  <h2>⚙️ 초기 설정</h2>
+  <p>처음 한 번만 설정하면 돼요.<br>Google Apps Script 배포 URL을 입력해주세요.</p>
+
+  <div class="setup-steps">
+    <strong>Apps Script 배포 방법</strong><br>
+    1. Google Sheets 열기 → 확장 프로그램 → Apps Script<br>
+    2. Code.gs 내용 붙여넣기 후 저장<br>
+    3. 배포 → 새 배포 → 웹 앱 선택<br>
+    4. 실행: 나, 액세스: <strong>모든 사용자</strong> → 배포<br>
+    5. 생성된 URL 아래에 붙여넣기
+  </div>
+
+  <div class="setup-field">
+    <label>Apps Script 웹앱 URL</label>
+    <input type="text" id="setup-url" placeholder="https://script.google.com/macros/s/.../exec">
+    <div class="setup-hint">⚠️ URL은 이 기기 브라우저에만 저장돼요 (localStorage)</div>
+  </div>
+
+  <div class="setup-field">
+    <label>관리자 비밀번호 확인용 (Code.gs의 ADMIN_PW와 동일)</label>
+    <input type="password" id="setup-pw" placeholder="admin1234">
+  </div>
+
+  <div style="display:flex;gap:10px;margin-top:8px">
+    <button class="btn btn-primary" onclick="saveSetup()" style="flex:1">설정 저장 후 시작</button>
+    <button class="btn btn-ghost" onclick="testConn()">연결 테스트</button>
+  </div>
+  <div id="setup-msg" style="font-size:12px;margin-top:10px;min-height:18px"></div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 1: 학생 성적 입력
+══════════════════════════════════════ -->
+<div id="screen-input" class="screen">
+<div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+    <div class="page-title">경동대학교 <span>학생부 교과성적 산출 프로그램</span></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn btn-ghost btn-sm no-print" onclick="resetAll()" style="font-size:12px;color:#dc2626;border-color:#fca5a5">↺ 초기화</button>
+      <button class="btn btn-ghost btn-sm no-print" onclick="goAdmin()" style="font-size:11px">관리자</button>
+    </div>
+  </div>
+  <div class="page-sub">2008년 이후 졸업자 기준 &nbsp;·&nbsp; 수시모집: 1학년 1학기 ~ 3학년 1학기 반영 &nbsp;·&nbsp; 정시모집: 1학년 1학기 ~ 3학년 2학기 반영</div>
+  <div class="formula-strip">
+    <div class="fs-row-top">
+      <div class="fs-step">
+        <span class="fs-step-num">1단계</span>
+        <span class="fs-step-val">학기 평균 = 등급 합계 ÷ 과목 수</span>
+      </div>
+      <div class="fs-step">
+        <span class="fs-step-num">2단계</span>
+        <span class="fs-step-val">내신 등급 = 학기 평균 합계 ÷ 이수 학기 수</span>
+      </div>
+    </div>
+    <div class="fs-row-bottom">
+      <div class="fs-type">
+        <span class="fs-type-label">일반교과</span>
+        <span style="font-size:15px;font-weight:600;opacity:.9">1 ~ 9등급 직접 입력</span>
+      </div>
+      <div class="fs-type">
+        <span class="fs-type-label">진로선택과목</span>
+        <div class="chips">
+          <span class="chip chip-j">A → 1</span>
+          <span class="chip chip-j">B → 3</span>
+          <span class="chip chip-j">C → 5</span>
+        </div>
+      </div>
+      <div class="fs-type">
+        <span class="fs-type-label">기타(체육·예술·과학탐구실험) · 특성화고 전문교과</span>
+        <div class="chips">
+          <span class="chip chip-g">A → 2</span>
+          <span class="chip chip-g">B → 4</span>
+          <span class="chip chip-g">C → 6</span>
+          <span class="chip chip-g">D → 8</span>
+          <span class="chip chip-g">E → 9</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#fff8e1;border-left:3px solid #f59e0b;border-radius:6px;padding:10px 16px;margin-bottom:20px;font-size:13px;color:#92400e;">★ 반영 교과 : 전체 교과목의 등급 평균 반영 &nbsp;|&nbsp; ※ 과목명은 입력하지 않아도 성적산출 가능합니다.</div>
+
+  <div class="sem-grid" id="sem-grid"></div>
+
+  <div class="bottom-bar">
+    <button class="btn btn-primary" onclick="goResult()">결과 보기 →</button>
+  </div>
+</div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 2: 결과 + 제출
+══════════════════════════════════════ -->
+<div id="screen-result" class="screen">
+<div class="result-wrap">
+
+  <div class="result-actions no-print">
+    <button class="btn btn-ghost" onclick="goInput()">← 돌아가기</button>
+    <button class="btn btn-ghost" onclick="window.print()">🖨️ 인쇄</button>
+  </div>
+
+  <div class="result-header">
+    <div class="result-title">경동대학교 학생부 교과성적 산출 결과</div>
+    <div class="result-grade-big" id="res-final">—</div>
+    <div class="result-grade-unit">등급</div>
+    <div id="res-formula" class="result-formula"></div>
+  </div>
+
+  <!-- 제출 박스 -->
+  <div class="submit-box no-print" id="submit-box">
+    <h3>📤 관리자에게 결과 제출</h3>
+    <div style="text-align:left;background:#f8faff;border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:12px;color:#3d3d3a;line-height:1.8">
+      <p style="margin-bottom:8px">※ 산출된 성적은 개인 확인용 참고자료입니다.<br>입학상담을 원하시는 경우 이름을 작성하신 후 제출해 주시기 바랍니다.<br>제출은 선택사항이며, 작성하지 않으셔도 됩니다.</p>
+      <p style="margin-bottom:8px">※ 입력하신 성적에 오류가 있을 경우 결과가 달라질 수 있습니다.<br>정확한 결과 확인을 위해 입력 내용을 다시 확인해 주세요.</p>
+      <p style="font-weight:700;color:#1a3a8f">☎ 경동대학교 입학처 033-738-1286~1288</p>
+    </div>
+    <div class="submit-row">
+      <input type="text" class="submit-name" id="submit-name" placeholder="이름 입력">
+      <button class="btn btn-primary" id="submit-btn" onclick="submitResult()">제출하기</button>
+    </div>
+    <div class="submit-status" id="submit-status"></div>
+  </div>
+
+  <table class="sem-summary-table">
+    <thead><tr><th>학기</th><th>과목 수</th><th>등급 합계</th><th>학기 평균</th><th>반영 여부</th></tr></thead>
+    <tbody id="res-sem-table"></tbody>
+    <tfoot id="res-tfoot"></tfoot>
+  </table>
+  <div id="res-detail"></div>
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 3: 관리자
+══════════════════════════════════════ -->
+<div id="screen-admin" class="screen">
+<div class="admin-wrap">
+
+  <!-- 로그인 -->
+  <div id="admin-login">
+    <div class="login-overlay">
+      <div class="login-card">
+        <h2>🔐 관리자 로그인</h2>
+        <p>관리자만 로그인 가능합니다!<br>비밀번호를 입력해주세요</p>
+        <div class="login-field">
+          <input type="password" id="admin-pw-input" placeholder="비밀번호" onkeydown="if(event.key==='Enter')adminLogin()">
+          <button class="btn btn-primary" onclick="adminLogin()">입력</button>
+        </div>
+        <div class="login-err" id="login-err"></div>
+        <button class="btn btn-ghost btn-sm" onclick="goInput()" style="margin-top:16px">← 학생 화면으로</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 대시보드 -->
+  <div id="admin-dashboard" style="display:none">
+    <div class="admin-topbar">
+      <div class="admin-title">관리자 <span>대시보드</span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="loadAdminData()">🔄 새로고침</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()">📥 CSV 다운로드</button>
+        <button class="btn btn-ghost btn-sm" onclick="goInput()">← 학생 화면</button>
+        <button class="btn btn-ghost btn-sm" onclick="adminLogout()">로그아웃</button>
+      </div>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="stat-row">
+      <div class="stat-card"><div class="sv" id="st-total">0</div><div class="sl">총 제출 수</div></div>
+      <div class="stat-card"><div class="sv" id="st-avg">—</div><div class="sl">평균 내신 등급</div></div>
+      <div class="stat-card"><div class="sv" id="st-best">—</div><div class="sl">최고 등급</div></div>
+      <div class="stat-card"><div class="sv" id="st-today">0</div><div class="sl">오늘 제출</div></div>
+    </div>
+
+    <!-- 등급 분포 -->
+    <div class="dist-card">
+      <h3>등급 분포</h3>
+      <div id="admin-dist"></div>
+    </div>
+
+    <!-- 목록 -->
+    <div class="list-header">
+      <span style="font-size:15px;font-weight:700">제출 목록</span>
+      <input type="text" id="search-input" placeholder="이름 검색..." style="width:180px" oninput="renderTable()">
+    </div>
+    <div class="list-tbl-wrap">
+      <table class="list-tbl">
+        <thead><tr>
+          <th>번호</th><th>제출일시</th><th>이름</th><th>최종등급</th>
+          <th>1-1</th><th>1-2</th><th>2-1</th><th>2-2</th><th>3-1</th><th>3-2</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="admin-tbody"></tbody>
+      </table>
+    </div>
+    <div id="admin-empty" style="text-align:center;padding:40px;color:var(--ink3);display:none">
+      제출된 데이터가 없습니다
+    </div>
+
+  </div>
+</div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// 설정
+// ══════════════════════════════════════════════
+let GAS_URL  = 'https://script.google.com/macros/s/AKfycbwYr1slITUN3TePMNvc9IeUeLNBMIy-TzH94uXoflpcy-4cMRWgxQVtExaG23IgZ_M/exec';
+let ADMIN_PW = localStorage.getItem('admin_pw') || 'kdu1288!!';
+let adminRows = [];
+
+function saveSetup() {
+  const url = document.getElementById('setup-url').value.trim();
+  const pw  = document.getElementById('setup-pw').value.trim();
+  if (!url) { setMsg('URL을 입력해주세요', 'red'); return; }
+  GAS_URL  = url;
+  ADMIN_PW = pw;
+  localStorage.setItem('gas_url', url);
+  localStorage.setItem('admin_pw', pw);
+  goScreen('input');
+}
+
+async function testConn() {
+  const url = document.getElementById('setup-url').value.trim();
+  if (!url) { setMsg('URL을 입력해주세요', 'red'); return; }
+  setMsg('연결 확인 중...', 'gray');
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    setMsg(d.ok ? '✅ 연결 성공!' : '⚠️ ' + d.msg, d.ok ? 'green' : 'red');
+  } catch(e) {
+    setMsg('❌ 연결 실패: ' + e.message, 'red');
+  }
+}
+
+function setMsg(m, c) {
+  const el = document.getElementById('setup-msg');
+  el.textContent = m;
+  el.style.color = c === 'green' ? '#15803d' : c === 'red' ? '#dc2626' : '#666';
+}
+
+// ══════════════════════════════════════════════
+// 화면 전환
+// ══════════════════════════════════════════════
+function goScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function goInput()  { goScreen('input'); }
+function goAdmin()  { goScreen('admin'); }
+
+function resetAll() {
+  if (!confirm('모든 입력 내용을 초기화할까요?')) return;
+  sems = Array.from({length:6}, () =>
+    Array.from({length:8}, () => ({id:'R'+Date.now()+Math.floor(Math.random()*9999), name:'', type:'일반', raw:'', grade:null}))
+  );
+  renderInput();
+}
+function goResult() {
+  recalc();
+  const avgs   = sems.map((_,si) => semAvg(si));
+  const active = avgs.filter(a => a !== null);
+  if (!active.length) { alert('입력된 성적이 없습니다.'); return; }
+  renderResultScreen(avgs, active);
+  // 제출 박스 초기화
+  document.getElementById('submit-name').value = '';
+  document.getElementById('submit-status').textContent = '';
+  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('submit-box').style.display = 'block';
+  goScreen('result');
+}
+
+// ══════════════════════════════════════════════
+// 성적 산출 로직 (기존 그대로)
+// ══════════════════════════════════════════════
+
+function trunc2(n) {
+  return Math.floor(n * 100) / 100;
+}
+const SEM_LABELS = ['1학년 1학기','1학년 2학기','2학년 1학기','2학년 2학기','3학년 1학기','3학년 2학기'];
+const JINRO = {A:1,B:3,C:5};
+const GITA  = {A:2,B:4,C:6,D:8,E:9};
+const GCOLS = ['','#4c1d95','#1e3a8a','#134e4a','#14532d','#713f12','#7c2d12','#7f1d1d','#881337','#450a0a'];
+const TYPE_META = {
+  '일반': { label:'일반교과',                    dot:'#1a3a8f', opts:null,               map:null  },
+  '진로': { label:'진로선택',                    dot:'#7c3aed', opts:['','A','B','C'],   map:JINRO },
+  '기타': { label:'기타(체육·예술·과학탐구실험)', dot:'#d97706', opts:['','A','B','C','D','E'], map:GITA },
+  '전문': { label:'특성화고 전문교과',            dot:'#0f766e', opts:['','A','B','C','D','E'], map:GITA },
+};
+
+let sems = Array.from({length:6}, () => []);
+
+function resolve(type, raw) {
+  const s = String(raw).trim().toUpperCase();
+  if (type === '일반') { const n=parseInt(s); return (n>=1&&n<=9)?n:null; }
+  const meta = TYPE_META[type];
+  if (meta && meta.map) return meta.map[s] ?? null;
+  return null;
+}
+
+function semAvg(si) {
+  const valid = sems[si].filter(r => r.grade !== null);
+  if (!valid.length) return null;
+  return valid.reduce((a,r) => a+r.grade, 0) / valid.length;
+}
+
+function renderInput() {
+  const grid = document.getElementById('sem-grid');
+  grid.innerHTML = '';
+  sems.forEach((rows, si) => {
+    const avg = semAvg(si);
+    const avgTxt = avg !== null ? trunc2(avg).toFixed(2) : '—';
+    const validCnt = rows.filter(r => r.grade !== null).length;
+    const card = document.createElement('div');
+    card.className = 'sem-card';
+    card.innerHTML = `
+      <div class="sc-header">
+        <span class="sc-title">${SEM_LABELS[si]}</span>
+        <span class="sc-avg">${validCnt>0?validCnt+'과목 · ':''}<strong>${avgTxt}</strong>등급</span>
+      </div>
+      <div class="sc-body">
+        ${rows.map(r => rowHTML(r, si)).join('')}
+        <button class="add-row-btn" onclick="addRow(${si})">+ 과목 추가</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function rowHTML(r, si) {
+  const g = r.grade;
+  const gEl = g !== null ? `<span class="gbadge g${g}">${g}</span>` : `<span class="g-none"></span>`;
+  const valInput = r.type === '일반'
+    ? `<input class="ri-val" type="number" min="1" max="9" value="${r.raw}" placeholder="1~9" onchange="upd('${r.id}',${si},'raw',this.value)">`
+    : `<select class="ri-val" onchange="upd('${r.id}',${si},'raw',this.value)">
+         ${(TYPE_META[r.type]?.opts||[]).map(v=>`<option value="${v}" ${r.raw===v?'selected':''}>${v||'-'}</option>`).join('')}
+       </select>`;
+  return `<div class="row-item">
+    <input class="ri-name" type="text" value="${r.name}" placeholder="과목명" onchange="upd('${r.id}',${si},'name',this.value)">
+    <select class="ri-type" onchange="upd('${r.id}',${si},'type',this.value)">
+      <option value="일반" ${r.type==='일반'?'selected':''}>일반</option>
+      <option value="진로" ${r.type==='진로'?'selected':''}>진로선택</option>
+      <option value="기타" ${r.type==='기타'?'selected':''}>기타(체육등)</option>
+      <option value="전문" ${r.type==='전문'?'selected':''}>전문교과</option>
+    </select>
+    ${valInput}${gEl}
+    <button class="del-btn" onclick="delRow('${r.id}',${si})">✕</button>
+  </div>`;
+}
+
+function addRow(si) {
+  const id = 'R'+Date.now()+Math.floor(Math.random()*9999);
+  sems[si].push({id, name:'', type:'일반', raw:'', grade:null});
+  renderInput();
+}
+function delRow(id, si) { sems[si] = sems[si].filter(r=>r.id!==id); recalc(); }
+function upd(id, si, key, val) {
+  const r = sems[si].find(x=>x.id===id); if (!r) return;
+  r[key] = val;
+  if (key==='type') r.raw='';
+  r.grade = resolve(r.type, r.raw);
+  renderInput();
+}
+function recalc() { sems.forEach(rows=>rows.forEach(r=>{r.grade=resolve(r.type,r.raw);})); renderInput(); }
+
+// ══════════════════════════════════════════════
+// 결과 화면 렌더
+// ══════════════════════════════════════════════
+function renderResultScreen(avgs, active) {
+  const final = active.reduce((a,b)=>a+b,0) / active.length;
+  const gi = Math.min(9, Math.max(1, Math.round(final)));
+
+  document.getElementById('res-final').textContent = trunc2(final).toFixed(2);
+  document.getElementById('res-final').style.color = GCOLS[gi];
+  const parts = avgs.map(a=>a!==null?trunc2(a).toFixed(2):null).filter(Boolean);
+  document.getElementById('res-formula').textContent = `(${parts.join(' + ')}) ÷ ${active.length} = ${trunc2(final).toFixed(2)}`;
+
+  document.getElementById('res-sem-table').innerHTML = sems.map((rows,si) => {
+    const valid = rows.filter(r=>r.grade!==null);
+    const avg = avgs[si];
+    if (!valid.length) return `<tr><td>${SEM_LABELS[si]}</td><td class="mono" style="color:#aaa">—</td><td class="mono" style="color:#aaa">—</td><td class="mono" style="color:#aaa">—</td><td style="color:#aaa;font-size:12px">미입력</td></tr>`;
+    const sum = valid.reduce((a,r)=>a+r.grade,0);
+    return `<tr><td style="font-weight:600">${SEM_LABELS[si]}</td><td class="mono">${valid.length}</td><td class="mono">${sum}</td><td class="mono" style="font-weight:700;color:${GCOLS[Math.min(9,Math.max(1,Math.round(avg)))]}">${trunc2(avg).toFixed(2)}</td><td style="color:#15803d;font-size:12px;font-weight:600">✓</td></tr>`;
+  }).join('');
+
+  document.getElementById('res-tfoot').innerHTML = `
+    <tr style="background:var(--ink);color:white">
+      <td colspan="3" style="padding:11px 14px;font-weight:700;font-size:13px">수시 내신 등급 (최종)</td>
+      <td style="padding:11px 14px;font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:${GCOLS[gi]};background:white">${trunc2(final).toFixed(2)}</td>
+      <td style="padding:11px 14px;font-size:12px">${active.length}개 학기</td>
+    </tr>`;
+
+  document.getElementById('res-detail').innerHTML = sems.map((rows,si) => {
+    const valid = rows.filter(r=>r.grade!==null);
+    if (!valid.length) return '';
+    const avg = avgs[si];
+    return `<div class="detail-section">
+      <div class="detail-sem-header"><span class="dsh-title">${SEM_LABELS[si]}</span><span class="dsh-avg">${trunc2(avg).toFixed(2)} 등급</span></div>
+      <table class="detail-tbl"><tbody>
+        ${valid.map(r=>`<tr>
+          <td style="width:50%"><span class="type-dot" style="background:${TYPE_META[r.type]?.dot||'#999'}"></span>${r.name||'(이름 없음)'}</td>
+          <td style="font-size:12px;color:var(--ink3)">${TYPE_META[r.type]?.label||r.type}</td>
+          <td style="font-size:12px;color:var(--ink3);font-family:'DM Mono',monospace">${r.type!=='일반'?`${r.raw}→${r.grade}등급`:''}</td>
+          <td style="text-align:right;padding-right:16px"><span class="gbadge g${r.grade}" style="display:inline-flex">${r.grade}</span></td>
+        </tr>`).join('')}
+      </tbody></table>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════
+// 학생 제출
+// ══════════════════════════════════════════════
+async function submitResult() {
+  const name = document.getElementById('submit-name').value.trim();
+  if (!name) { setSubmitStatus('이름을 입력해주세요', 'err'); return; }
+  if (!GAS_URL) { setSubmitStatus('Apps Script URL이 설정되지 않았습니다', 'err'); return; }
+
+  const avgs   = sems.map((_,si) => semAvg(si));
+  const active = avgs.filter(a => a !== null);
+  const final  = active.reduce((a,b)=>a+b,0) / active.length;
+
+  document.getElementById('submit-btn').disabled = true;
+  setSubmitStatus('제출 중...', 'loading');
+
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'submit',
+        data: {
+          name,
+          finalGrade: trunc2(final),
+          activeSems: active.length,
+          semAvgs: avgs.map(a => a !== null ? trunc2(a) : null),
+          sems: sems.map(rows => rows.filter(r=>r.grade!==null).map(r=>({name:r.name,type:r.type,raw:r.raw,grade:r.grade})))
+        }
+      })
+    });
+    const d = await res.json();
+    if (d.ok) {
+      setSubmitStatus('✅ 제출 완료! 선생님께 전달됐어요', 'ok');
+      document.getElementById('submit-box').innerHTML = `<div style="padding:20px;text-align:center;color:#15803d;font-weight:700;font-size:16px">✅ 제출이 완료됐습니다!</div>`;
+    } else {
+      setSubmitStatus('❌ 오류: ' + d.msg, 'err');
+      document.getElementById('submit-btn').disabled = false;
+    }
+  } catch(e) {
+    setSubmitStatus('❌ 네트워크 오류: ' + e.message, 'err');
+    document.getElementById('submit-btn').disabled = false;
+  }
+}
+
+function setSubmitStatus(msg, type) {
+  const el = document.getElementById('submit-status');
+  el.textContent = msg;
+  el.className = 'submit-status status-' + type;
+}
+
+// ══════════════════════════════════════════════
+// 관리자
+// ══════════════════════════════════════════════
+function adminLogin() {
+  const pw = document.getElementById('admin-pw-input').value;
+  if (pw === ADMIN_PW) {
+    document.getElementById('admin-login').style.display = 'none';
+    document.getElementById('admin-dashboard').style.display = 'block';
+    loadAdminData();
+  } else {
+    document.getElementById('login-err').textContent = '비밀번호가 틀렸습니다';
+    setTimeout(()=>document.getElementById('login-err').textContent='', 2000);
+  }
+}
+
+function adminLogout() {
+  document.getElementById('admin-login').style.display = 'block';
+  document.getElementById('admin-dashboard').style.display = 'none';
+  document.getElementById('admin-pw-input').value = '';
+  goInput();
+}
+
+async function loadAdminData() {
+  if (!GAS_URL) { alert('Apps Script URL이 설정되지 않았습니다'); return; }
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'list', pw: ADMIN_PW })
+    });
+    const d = await res.json();
+    if (!d.ok) { alert('오류: ' + d.msg); return; }
+
+    // 헤더 제외
+    adminRows = d.rows.slice(1);
+    renderStats();
+    renderDist();
+    renderTable();
+  } catch(e) {
+    alert('로드 실패: ' + e.message);
+  }
+}
+
+function renderStats() {
+  const grades = adminRows.map(r => parseFloat(r[3])).filter(n => !isNaN(n));
+  const total  = grades.length;
+  const avg    = total ? trunc2(grades.reduce((a,b)=>a+b,0)/total).toFixed(2) : '—';
+  const best   = total ? trunc2(Math.min(...grades)).toFixed(2) : '—';
+
+  const today = new Date().toISOString().slice(0,10);
+  const todayCnt = adminRows.filter(r => String(r[1]).startsWith(today)).length;
+
+  document.getElementById('st-total').textContent = total;
+  document.getElementById('st-avg').textContent   = avg;
+  document.getElementById('st-best').textContent  = best;
+  document.getElementById('st-today').textContent = todayCnt;
+}
+
+function renderDist() {
+  const grades   = adminRows.map(r => parseFloat(r[3])).filter(n => !isNaN(n));
+  const gcols    = ['','#4c1d95','#1e3a8a','#134e4a','#14532d','#713f12','#7c2d12','#7f1d1d','#881337','#450a0a'];
+  const buckets  = Array(9).fill(0);
+  const names    = Array.from({length:9}, ()=>[]);
+
+  grades.forEach((g,i) => {
+    const bucket = Math.min(8, Math.max(0, Math.round(g) - 1));
+    buckets[bucket]++;
+    const nm = adminRows[i]?.[2] || '';
+    if (nm) names[bucket].push(nm);
+  });
+
+  const maxC = Math.max(...buckets, 1);
+  document.getElementById('admin-dist').innerHTML = buckets.map((cnt, i) => `
+    <div class="dist-row">
+      <span class="dist-lbl" style="color:${gcols[i+1]}">${i+1}</span>
+      <div class="dist-bg"><div class="dist-fill" style="width:${(cnt/maxC)*100}%;background:${gcols[i+1]}"></div></div>
+      <span class="dist-cnt">${cnt}</span>
+      <span class="dist-names">${names[i].join(', ')}</span>
+    </div>`).join('');
+}
+
+function renderTable() {
+  const q = (document.getElementById('search-input')?.value || '').trim().toLowerCase();
+  const filtered = q ? adminRows.filter(r => String(r[2]).toLowerCase().includes(q)) : adminRows;
+  const gcols = ['','#4c1d95','#1e3a8a','#134e4a','#14532d','#713f12','#7c2d12','#7f1d1d','#881337','#450a0a'];
+  const gbgs  = ['','#f5f3ff','#eff6ff','#f0fdfa','#f0fdf4','#fefce8','#fff7ed','#fef2f2','#fff1f2','#fef2f2'];
+
+  document.getElementById('admin-empty').style.display = filtered.length ? 'none' : 'block';
+  document.getElementById('admin-tbody').innerHTML = filtered.map(r => {
+    const g  = parseFloat(r[3]);
+    const gi = isNaN(g) ? 0 : Math.min(9, Math.max(1, Math.round(g)));
+    const pill = isNaN(g) ? '—' : `<span class="grade-pill" style="background:${gbgs[gi]};color:${gcols[gi]}">${trunc2(g).toFixed(2)}</span>`;
+    const semCols = [5,6,7,8,9,10].map(i => `<td class="mono" style="font-size:12px">${r[i]!==''&&r[i]!==undefined?trunc2(parseFloat(r[i])).toFixed(2):'—'}</td>`).join('');
+    return `<tr>
+      <td class="mono" style="color:var(--ink3);font-size:12px">${r[0]}</td>
+      <td style="font-size:12px;color:var(--ink3)">${r[1]}</td>
+      <td style="font-weight:600">${r[2]}</td>
+      <td>${pill}</td>
+      ${semCols}
+      <td><button class="btn btn-sm" style="background:transparent;color:#dc2626;border:1px solid #fca5a5;padding:4px 10px;font-size:11px" onclick="deleteRow('${r[0]}')">삭제</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function deleteRow(seq) {
+  if (!confirm(`제출번호 ${seq}번을 삭제할까요?`)) return;
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'delete', pw: ADMIN_PW, seq })
+    });
+    const d = await res.json();
+    if (d.ok) loadAdminData();
+    else alert('삭제 실패: ' + d.msg);
+  } catch(e) { alert('오류: ' + e.message); }
+}
+
+function exportCSV() {
+  if (!adminRows.length) { alert('데이터가 없습니다'); return; }
+  let csv = '\uFEFF제출번호,제출일시,이름,최종등급,반영학기,1-1,1-2,2-1,2-2,3-1,3-2\n';
+  adminRows.forEach(r => {
+    csv += [r[0],r[1],r[2],r[3],r[4],r[5],r[6],r[7],r[8],r[9],r[10]]
+             .map(v => `"${v}"`).join(',') + '\n';
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = `내신제출내역_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ══════════════════════════════════════════════
+// 초기화
+// ══════════════════════════════════════════════
+sems = Array.from({length:6}, () =>
+  Array.from({length:8}, () => ({id:'R'+Date.now()+Math.floor(Math.random()*9999), name:'', type:'일반', raw:'', grade:null}))
+);
+
+// URL이 이미 저장돼 있으면 바로 학생 화면으로
+goScreen('input');
+
+renderInput();
+</script>
+</body>
+</html>
